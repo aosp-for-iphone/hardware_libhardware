@@ -46,7 +46,7 @@
 #endif
 
 // numbers of buffers for page flipping
-#define NUM_BUFFERS 2
+#define NUM_BUFFERS 1
 
 
 enum {
@@ -66,6 +66,19 @@ static int fb_setSwapInterval(struct framebuffer_device_t* dev,
     if (interval < dev->minSwapInterval || interval > dev->maxSwapInterval)
         return -EINVAL;
     // FIXME: implement fb_setSwapInterval
+    return 0;
+}
+
+static int fb_enableScreen(struct framebuffer_device_t *dev, int enable)
+{
+    private_module_t* m = reinterpret_cast<private_module_t*>(
+            dev->common.module);
+
+    if (ioctl(m->framebuffer->fd, FBIOBLANK, enable ? FB_BLANK_UNBLANK : FB_BLANK_POWERDOWN) == -1) {
+        ALOGE("FBIOBLANK(%d) failed", enable);
+        return -errno;
+    }
+
     return 0;
 }
 
@@ -221,7 +234,8 @@ int mapFrameBufferLocked(struct private_module_t* module)
             "bpp          = %d\n"
             "r            = %2u:%u\n"
             "g            = %2u:%u\n"
-            "b            = %2u:%u\n",
+            "b            = %2u:%u\n"
+            "stride       = %u\n",
             fd,
             finfo.id,
             info.xres,
@@ -231,7 +245,8 @@ int mapFrameBufferLocked(struct private_module_t* module)
             info.bits_per_pixel,
             info.red.offset, info.red.length,
             info.green.offset, info.green.length,
-            info.blue.offset, info.blue.length
+            info.blue.offset, info.blue.length,
+            finfo.line_length
     );
 
     ALOGI(   "width        = %d mm (%f dpi)\n"
@@ -312,6 +327,7 @@ int fb_device_open(hw_module_t const* module, const char* name,
         dev->device.common.close = fb_close;
         dev->device.setSwapInterval = fb_setSwapInterval;
         dev->device.post            = fb_post;
+        dev->device.enableScreen    = fb_enableScreen;
         dev->device.setUpdateRect = 0;
 
         private_module_t* m = (private_module_t*)module;
@@ -332,8 +348,6 @@ int fb_device_open(hw_module_t const* module, const char* name,
             const_cast<int&>(dev->device.minSwapInterval) = 1;
             const_cast<int&>(dev->device.maxSwapInterval) = 1;
             *device = &dev->device.common;
-        } else {
-            free(dev);
         }
     }
     return status;
