@@ -89,6 +89,10 @@ struct private_module_t HAL_MODULE_INFO_SYM = {
         .unregisterBuffer = gralloc_unregister_buffer,
         .lock = gralloc_lock,
         .unlock = gralloc_unlock,
+#if PLATFORM_SDK_VERSION >= 28
+        .validateBufferSize = NULL,
+        .getTransportSize = NULL,
+#endif
     },
     .framebuffer = 0,
     .flags = 0,
@@ -228,7 +232,7 @@ static int gralloc_alloc(alloc_device_t* dev,
             return -EINVAL;
     }
 
-    const size_t tileWidth = 2;
+    const size_t tileWidth = 16;
     const size_t tileHeight = 2;
 
     size_t stride = align(width, tileWidth);
